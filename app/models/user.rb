@@ -19,6 +19,24 @@ class User < ActiveRecord::Base
       user.oauth_expires_at = Time.at(auth.credentials.expires_at)
       user.save!
     end
+    #BeeThreeMailer.signup_confirmation(@user).deliver
+  end
+
+  def add_venmo(code)
+    response = Typhoeus.post("https://api.venmo.com/v1/oauth/access_token", params: { client_id: ENV['VENMO_CLIENT_ID'], code: code, client_secret: ENV['VENMO_CLIENT_SECRET']})
+    response_parsed = JSON.parse(response.body)
+    # TODO: handle error response
+
+    token = response_parsed['access_token']
+    expiry = DateTime.now + 60.days
+    token_type = response_parsed['token_type']
+    refresh = response_parsed['refresh_token']
+    venmo_id = response_parsed['user']['id']
+    venmo_email = response_parsed['user']['email']
+
+    self.update(venmo_access_token: token, venmo_expires_at: expiry, venmo_token_type: token_type, venmo_refresh_token: refresh, venmo_id: venmo_id,  venmo_email: venmo_email)
+    #TODO: check that tokens were not nil and were saved, return response to controller
+
   end
 
   def facebook
@@ -29,6 +47,31 @@ class User < ActiveRecord::Base
     friends = self.facebook.get_connection("#{self.uid}", "friends")
     return friends
   end
+
+  def friends_sales
+    friends = self.get_friends
+    for_sale = []
+    seller = Role.find_by(name: 'Seller')
+    open = TxnStatus.find_by(name: 'Listed')
+
+    friends.each do |friend|
+      fb_id = friend['id']
+      local_friend = User.find_by(uid: fb_id)
+
+      unless local_friend.nil?
+        friend_txns = UsersProducts.where(user_id: local_friend.id).where(role_id: seller.id).where(txn_status_id: open.id)
+        friend_txns.each do |sale|
+          for_sale.push(sale.product)
+        end
+      end
+
+    end
+    return for_sale
+  end
+
+  def my_sales
+  end
+
 
 end
 

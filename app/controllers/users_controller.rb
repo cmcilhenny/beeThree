@@ -1,12 +1,19 @@
 class UsersController < ApplicationController
-	
+
+  skip_before_filter :signed_in_user, only: [:new]
+  skip_before_filter :venmo_check, only: [:new, :venmo, :venmo_auth]
+  
 	def index
 		redirect_to user_path(@current_user.id)
 	end
 
 	def show
-		@all_transactions = UsersProducts.where(user_id: params[:id])
+		@all_transactions = UsersProducts.where(user_id: current_user.id)
 	end
+
+	def new
+  	# after successful signup/login, redirect_to venmo_path
+  end
 
 	def create
 	end
@@ -14,14 +21,23 @@ class UsersController < ApplicationController
 	def update
 	end
 
-  #venmo webhook auth (temp)
-  def webhook_verify
-    render :text => params[:venmo_challenge].to_s
+  def venmo
   end
 
-  #updated root route to user#new to allow user to sign-in/up before viewing the products#index page.
-  def new
+  def venmo_auth
+  	if (params['error'] != nil) || (params['state'] != 'b3b3b3')
+  		redirect_to venmo_path, notice: 'We were not able to connect to your Venmo account which is required for the use of beeThree. We require this so we can facilitate your purchases with friends. Please try again.'
+  	else
+	  	code = params['code']
+	  	@current_user.add_venmo(code)
+	  	#TODO: check response from user method that token was successfully saved
+	  	redirect_to products_path, notice: "You're all set to shop!"
+	  end
+  end
 
+  #venmo webhook auth (temp)
+  def webhook_verify
+  	render :text => params[:venmo_challenge].to_s
   end
 
 end

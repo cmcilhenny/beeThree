@@ -1,10 +1,10 @@
 class ProductsController < ApplicationController
-  attr_accessor :avatar, :name, :description, :price
+  include ProductsHelper
+
+  before_filter :product_check, only: [:show]
 
 	def index
-    @products = Product.all
-    # TODO: only pull in items with 'Listed' in the seller's txn_status (methods only can handle one pending request at a time currently)
-    @friends = @current_user.get_friends
+    @friends_sales = @current_user.friends_sales
 	end
 
 	def new
@@ -20,6 +20,7 @@ class ProductsController < ApplicationController
       UsersProducts.create(user_id: @current_user.id, product_id: @product.id, role_id: seller.id, txn_status_id: open.id)
       redirect_to @product, notice: 'Item was successfully created.'
     else
+
       redirect_to new_product_path
     end
   end
@@ -40,6 +41,11 @@ class ProductsController < ApplicationController
   def show
 		@product = Product.find(params[:id])
 	end
+
+  def destroy
+    Product.find(params[:id]).destroy
+    redirect_to products_path
+  end
 
   private
 	  def product_params
